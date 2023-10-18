@@ -12,4 +12,4 @@ global:
     environment: lido5-george
 
   remote_write:
-    - url: http://loki:3100/loki/api/v1/push
+    - url: http://loki-service:3100/loki/api/v1/push
