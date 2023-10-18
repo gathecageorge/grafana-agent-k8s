@@ -1,4 +1,25 @@
 ---
+# org-loki.yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: org-loki-configmap
+data:
+  org-loki.yml: |-
+    {{ .Files.Get "org-loki.yml" | toString | nindent 4 }}
+
+---
+# org-prom.yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: org-prom-configmap
+data:
+  org-prom.yml: |-
+    {{ .Files.Get "org-prom.yml" | toString | nindent 4 }}
+
+---
+# entrypoint.sh
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,6 +29,7 @@ data:
     {{ .Files.Get "entrypoint.sh" | toString | nindent 4 }}
 
 ---
+# prometheus.yml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -17,6 +39,7 @@ data:
     {{ .Files.Get "prometheus.yml" | toString | nindent 4 }}
 
 ---
+# promtail.yml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -26,6 +49,7 @@ data:
     {{ .Files.Get "promtail.yml" | toString | nindent 4 }}
 
 ---
+# grafana deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -52,6 +76,7 @@ spec:
           value: mypass
 
 ---
+# grafana service
 apiVersion: v1
 kind: Service
 metadata:
@@ -66,6 +91,7 @@ spec:
     nodePort: 30000
 
 ---
+# prometheus deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -82,11 +108,19 @@ spec:
     spec:
       containers:
       - name: prometheus
-        image: prometheus/prometheus:latest
+        image: prom/prometheus:latest
+        args: ["--enable-feature=remote-write-receiver", "--config.file=/etc/prometheus/config.yml"]
         ports:
         - containerPort: 9090
-
+        volumeMounts:
+        - name: org-prom-configmap
+          mountPath: /etc/prometheus/config.yml
+      volumes:
+      - name: org-prom-configmap
+        configMap:
+          name: org-prom-configmap
 ---
+# prometheus service
 apiVersion: v1
 kind: Service
 metadata:
@@ -101,6 +135,7 @@ spec:
     nodePort: 30001
 
 ---
+# loki deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -118,6 +153,14 @@ spec:
       containers:
       - name: loki
         image: grafana/loki:latest
+        args: ["--config.file=/etc/loki/config.yml"]
         ports:
         - containerPort: 3100
+        volumeMounts:
+        - name: org-loki-configmap
+          mountPath: /etc/loki/config.yml
+      volumes:
+      - name: org-loki-configmap
+        configMap:
+          name: org-loki-configmap
 
