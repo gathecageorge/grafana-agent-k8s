@@ -18,6 +18,7 @@ EOF
 # -----------------------------------------------------------------------------------------------------
 # Set metrics section
 sed -e 's/^/      /' "$WORK_DIR/prometheus.yml" >> "$WORK_DIR/agent.yml"
+sed -e 's/^/  /' "$WORK_DIR/prometheus-custom.yml" >> "$WORK_DIR/agent.yml"
 
 # -----------------------------------------------------------------------------------------------------
 # Set logs section

@@ -1,3 +1,24 @@
+server:
+  log_level: info
+
+metrics:
+  configs:
+    - name: default
+      scrape_configs:
+        - job_name: 'vouch'
+          static_configs:
+            - targets: ['vouch-metrics:8081']
+        - job_name: 'traefik'
+          static_configs:
+            - targets: ['traefik-metrics:8080']
+  global:
+    external_labels:
+      cluster: lido5-vouch-george
+      environment: lido5-george
+  
+    remote_write:
+      - url: http://loki-service:3100/loki/api/v1/push
+
 logs:
   configs:
   - name: default
@@ -11,7 +32,7 @@ logs:
       relabel_configs:
         - source_labels: []
           target_label: server
-          replacement: SERVER_LABEL_HOSTNAME
+          replacement: 
         - action: labelmap
           regex: __meta_kubernetes_pod_label_(.+)
         - source_labels: [__meta_kubernetes_namespace]

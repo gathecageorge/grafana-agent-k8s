@@ -184,6 +184,9 @@ spec:
         - name: prometheus-config
           mountPath: /configs/prometheus.yml
           subPath: 'prometheus.yml'
+        - name: prometheus-custom-config
+          mountPath: /configs/prometheus-custom.yml
+          subPath: 'prometheus-custom.yml'
         - name: promtail-config
           mountPath: /configs/promtail.yml
           subPath: 'promtail.yml'
@@ -194,10 +197,13 @@ spec:
       - name: prometheus-config
         configMap:
           name: prometheus-config
+      - name: prometheus-custom-config
+        configMap:
+          name: prometheus-custom-config
       - name: promtail-config
         configMap:
           name: promtail-config
       - name: entrypoint-config
         configMap:
           name: entrypoint-config
-          default_mode: "0775"
+          defaultMode: 0775
