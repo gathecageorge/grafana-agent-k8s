@@ -63,7 +63,7 @@ spec:
   ports:
   - port: 3000
     targetPort: 3000
-    nodePort: 30007
+    nodePort: 33000
 
 ---
 apiVersion: apps/v1
@@ -98,7 +98,7 @@ spec:
   ports:
   - port: 9090
     targetPort: 9090
-    nodePort: 90907
+    nodePort: 39090
 
 ---
 apiVersion: apps/v1
