@@ -8,3 +8,5 @@ kubectl create configmap promtail-config --from-file promtail.yml
 kubectl create configmap entrypoint-config --from-file entrypoint.sh
 
 kubectl apply -f main.yml
+
+kubectl exec -ti deployment.apps/grafana-agent-deployment -- cat /configs/agent.yml
