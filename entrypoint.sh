@@ -13,9 +13,6 @@ server:
 integrations:
   node_exporter:
     enabled: true
-    rootfs_path: /host/root
-    sysfs_path: /host/sys
-    procfs_path: /host/proc
 
 metrics:
   configs:
