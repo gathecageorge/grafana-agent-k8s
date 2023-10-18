@@ -4,6 +4,15 @@ logs:
     positions:
       filename: /tmp/positions.yaml
     scrape_configs:
+    - job_name: system
+      static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: varlogs
+          server: SERVER_LABEL_HOSTNAME
+          __path__: /var/log/*log
+
     # https://github.com/prometheus/prometheus/blob/main/documentation/examples/prometheus-kubernetes.yml
     - job_name: "kubernetes-pods"
       kubernetes_sd_configs:

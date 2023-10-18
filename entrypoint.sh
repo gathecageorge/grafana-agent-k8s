@@ -10,6 +10,13 @@ cat > "$WORK_DIR/agent.yml" << EOF
 server:
   log_level: info
 
+integrations:
+  node_exporter:
+    enabled: true
+    rootfs_path: /host/root
+    sysfs_path: /host/sys
+    procfs_path: /host/proc
+
 metrics:
   configs:
     - name: default
