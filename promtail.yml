@@ -1,0 +1,25 @@
+logs:
+  configs:
+  - name: default
+    positions:
+      filename: /tmp/positions.yaml
+    scrape_configs:
+    # https://github.com/prometheus/prometheus/blob/main/documentation/examples/prometheus-kubernetes.yml
+    - job_name: "kubernetes-pods"
+      kubernetes_sd_configs:
+        - role: pod
+      relabel_configs:
+        - source_labels: []
+          target_label: server
+          replacement: SERVER_LABEL_HOSTNAME
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+        - source_labels: [__meta_kubernetes_namespace]
+          action: replace
+          target_label: namespace
+        - source_labels: [__meta_kubernetes_pod_name]
+          action: replace
+          target_label: pod
+
+  clients:
+    - url: http://prometheus:9090/api/v1/push
