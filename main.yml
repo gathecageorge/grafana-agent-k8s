@@ -1,54 +1,4 @@
 ---
-# org-loki.yml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: org-loki-configmap
-data:
-  org-loki.yml: |-
-    {{ .Files.Get "org-loki.yml" | toString | nindent 4 }}
-
----
-# org-prom.yml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: org-prom-configmap
-data:
-  org-prom.yml: |-
-    {{ .Files.Get "org-prom.yml" | toString | nindent 4 }}
-
----
-# entrypoint.sh
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: entrypoint-configmap
-data:
-  entrypoint.sh: |-
-    {{ .Files.Get "entrypoint.sh" | toString | nindent 4 }}
-
----
-# prometheus.yml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prometheus-configmap
-data:
-  prometheus.yml: |-
-    {{ .Files.Get "prometheus.yml" | toString | nindent 4 }}
-
----
-# promtail.yml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: promtail-configmap
-data:
-  promtail.yml: |-
-    {{ .Files.Get "promtail.yml" | toString | nindent 4 }}
-
----
 # grafana deployment
 apiVersion: apps/v1
 kind: Deployment
@@ -113,12 +63,12 @@ spec:
         ports:
         - containerPort: 9090
         volumeMounts:
-        - name: org-prom-configmap
+        - name: org-prom-config
           mountPath: /etc/prometheus/config.yml
       volumes:
-      - name: org-prom-configmap
+      - name: org-prom-config
         configMap:
-          name: org-prom-configmap
+          name: org-prom-config
 ---
 # prometheus service
 apiVersion: v1
@@ -157,10 +107,10 @@ spec:
         ports:
         - containerPort: 3100
         volumeMounts:
-        - name: org-loki-configmap
+        - name: org-loki-config
           mountPath: /etc/loki/config.yml
       volumes:
-      - name: org-loki-configmap
+      - name: org-loki-config
         configMap:
-          name: org-loki-configmap
+          name: org-loki-config
 
