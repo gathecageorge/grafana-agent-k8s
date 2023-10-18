@@ -65,6 +65,7 @@ spec:
         volumeMounts:
         - name: org-prom-config
           mountPath: /etc/prometheus/config.yml
+          subPath: 'org-prom.yml'
       volumes:
       - name: org-prom-config
         configMap:
@@ -109,6 +110,7 @@ spec:
         volumeMounts:
         - name: org-loki-config
           mountPath: /etc/loki/config.yml
+          subPath: 'org-loki.yml'
       volumes:
       - name: org-loki-config
         configMap:
