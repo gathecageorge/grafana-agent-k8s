@@ -1,7 +1,0 @@
-global:
-  external_labels:
-    cluster: lido5-vouch-george
-    environment: lido5-george
-
-  remote_write:
-    - url: http://loki-service:3100/loki/api/v1/push

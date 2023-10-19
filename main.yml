@@ -1,5 +1,5 @@
 ---
-# grafana deployment
+# grafana deployment 30000
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,13 +27,32 @@ spec:
         ports:
         - containerPort: 3000
         env:
-        - name: GF_SECURITY_ADMIN_USER
-          value: myadmin
-        - name: GF_SECURITY_ADMIN_PASSWORD
-          value: mypass
+        - name: GF_AUTH_ANONYMOUS_ENABLED
+          value: "true"
+        - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+          value: "Admin"
+        volumeMounts:
+        - name: dashboard-config
+          mountPath: /etc/grafana/provisioning/dashboards/dashboard.yml
+          subPath: 'dashboard.yml'
+        - name: json-dashboard-config
+          mountPath: /etc/grafana/provisioning/dashboards/json
+        - name: datasource-config
+          mountPath: /etc/grafana/provisioning/datasources/datasource.yml
+          subPath: 'datasource.yml'
+      volumes:
+      - name: dashboard-config
+        configMap:
+          name: dashboard-config
+      - name: json-dashboard-config
+        configMap:
+          name: json-dashboard-config
+      - name: datasource-config
+        configMap:
+          name: datasource-config
 
 ---
-# grafana service
+# grafana service 30000
 apiVersion: v1
 kind: Service
 metadata:
@@ -48,24 +67,24 @@ spec:
     nodePort: 30000
 
 ---
-# prometheus deployment
+# minio deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: prometheus-deployment
+  name: minio-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: prometheus
+      app: minio
   template:
     metadata:
       labels:
-        app: prometheus
+        app: minio
     spec:
       containers:
-      - name: prometheus
-        image: prom/prometheus:latest
+      - name: minio
+        image: minio/minio:latest
         resources:
           requests:
             memory: "64Mi"
@@ -73,32 +92,95 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "500m"
-        args: ["--enable-feature=remote-write-receiver", "--config.file=/etc/prometheus/config.yml"]
         ports:
-        - containerPort: 9090
-        volumeMounts:
-        - name: org-prom-config
-          mountPath: /etc/prometheus/config.yml
-          subPath: 'org-prom.yml'
-      volumes:
-      - name: org-prom-config
-        configMap:
-          name: org-prom-config
+        - containerPort: 9000
+        - containerPort: 9001
+        command: ["sh", "-c", "mkdir -p /data/loki && mkdir -p /data/mimir && minio server --quiet /data --console-address \":9001\""]
+        env:
+        - name: MINIO_ROOT_USER
+          value: myminio
+        - name: MINIO_ROOT_PASSWORD
+          value: mypassword
 
 ---
-# prometheus service
+# minio service 30001 and 30002
 apiVersion: v1
 kind: Service
 metadata:
-  name: prometheus-service
+  name: minio-service
 spec:
   type: NodePort
   selector:
-    app: prometheus
+    app: minio
   ports:
-  - port: 9090
-    targetPort: 9090
+  - port: 9000
+    targetPort: 9000
     nodePort: 30001
+    name: "9000"
+  - port: 9001
+    targetPort: 9001
+    nodePort: 30002
+    name: "9001"
+
+---
+# mimir deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mimir-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mimir
+  template:
+    metadata:
+      labels:
+        app: mimir
+    spec:
+      containers:
+      - name: mimir
+        image: grafana/mimir:latest
+        # hostame: mimir-1
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        args: ["-config.file=/etc/mimir.yml"]
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: mimir-config
+          mountPath: /etc/mimir.yml
+          subPath: 'mimir.yml'
+        - name: alertmanager-config
+          mountPath: /etc/alertmanager-fallback-config.yaml
+          subPath: 'alertmanager.yml'
+      volumes:
+      - name: mimir-config
+        configMap:
+          name: mimir-config
+      - name: alertmanager-config
+        configMap:
+          name: alertmanager-config
+
+---
+# mimir service 30003
+apiVersion: v1
+kind: Service
+metadata:
+  name: mimir-service
+spec:
+  type: NodePort
+  selector:
+    app: mimir
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30003
 
 ---
 # loki deployment
@@ -130,16 +212,16 @@ spec:
         ports:
         - containerPort: 3100
         volumeMounts:
-        - name: org-loki-config
+        - name: loki-config
           mountPath: /etc/loki/config.yml
-          subPath: 'org-loki.yml'
+          subPath: 'loki.yml'
       volumes:
-      - name: org-loki-config
+      - name: loki-config
         configMap:
-          name: org-loki-config
+          name: loki-config
 
 ---
-# loki service
+# loki service 30004
 apiVersion: v1
 kind: Service
 metadata:
@@ -151,7 +233,7 @@ spec:
   ports:
   - port: 3100
     targetPort: 3100
-    nodePort: 30002
+    nodePort: 30004
 
 ---
 # grafana-agent deployment
@@ -179,31 +261,31 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "500m"
-        command: ["/usr/bin/bash", "-c", "/configs/entrypoint.sh george-kube"]
+        command: ["/usr/bin/bash", "-c", "/configs/entrypoint.sh george-kube-logs"]
         volumeMounts:
-        - name: prometheus-config
-          mountPath: /configs/prometheus.yml
-          subPath: 'prometheus.yml'
-        - name: prometheus-custom-config
-          mountPath: /configs/prometheus-custom.yml
-          subPath: 'prometheus-custom.yml'
-        - name: promtail-config
-          mountPath: /configs/promtail.yml
-          subPath: 'promtail.yml'
         - name: entrypoint-config
           mountPath: /configs/entrypoint.sh
           subPath: 'entrypoint.sh'
+        - name: prometheus-custom-config
+          mountPath: /configs/prometheus-custom.yml
+          subPath: 'prometheus-custom.yml'
+        - name: prometheus-config
+          mountPath: /configs/prometheus.yml
+          subPath: 'prometheus.yml'
+        - name: promtail-config
+          mountPath: /configs/promtail.yml
+          subPath: 'promtail.yml'
       volumes:
-      - name: prometheus-config
-        configMap:
-          name: prometheus-config
-      - name: prometheus-custom-config
-        configMap:
-          name: prometheus-custom-config
-      - name: promtail-config
-        configMap:
-          name: promtail-config
       - name: entrypoint-config
         configMap:
           name: entrypoint-config
           defaultMode: 0775
+      - name: prometheus-custom-config
+        configMap:
+          name: prometheus-custom-config
+      - name: prometheus-config
+        configMap:
+          name: prometheus-config
+      - name: promtail-config
+        configMap:
+          name: promtail-config

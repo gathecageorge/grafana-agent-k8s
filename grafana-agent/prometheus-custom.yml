@@ -1,0 +1,9 @@
+global:
+  external_labels:
+    cluster: george-cluster
+    environment: george-env
+
+  remote_write:
+    - url: http://mimir-service:8080/api/v1/push
+      headers:
+        X-Scope-OrgID: demo

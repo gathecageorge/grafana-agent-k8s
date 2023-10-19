@@ -1,0 +1,36 @@
+target: all
+
+# Configure Mimir to use Minio as object storage backend.
+common:
+  storage:
+    backend: s3
+    s3:
+      endpoint: minio-service:9000
+      access_key_id: myminio
+      secret_access_key: mypassword
+      insecure: true
+      bucket_name: mimir
+
+# Blocks storage requires a prefix when using a common object storage bucket.
+blocks_storage:
+  storage_prefix: blocks
+  tsdb:
+    dir: /data/ingester
+
+# Use memberlist, a gossip-based protocol, to enable the 3 Mimir replicas to communicate
+memberlist:
+  join_members: [mimir-1]
+  randomize_node_name: false
+
+ingester:
+  ring:
+    replication_factor: 1
+
+limits:
+  max_label_names_per_series: 50
+  ingestion_rate: 100000
+  ingestion_burst_size: 1000000
+  max_global_series_per_user: 0
+
+server:
+  log_level: info

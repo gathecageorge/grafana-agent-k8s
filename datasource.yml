@@ -1,0 +1,29 @@
+apiVersion: 1
+
+deleteDatasources:
+  - name: Loki
+    orgId: 1
+
+  - name: Prometheus
+    orgId: 1
+
+datasources:
+- name: Loki
+  type: loki
+  access: proxy
+  orgId: 1
+  url: http://loki-service:3100
+  editable: true
+
+- name: Mimir
+  type: prometheus
+  access: proxy
+  orgId: 1
+  url: http://mimir-service:8080/prometheus
+  editable: true
+  jsonData:
+    httpHeaderName1: "X-Scope-OrgID"
+    alertmanagerUid: "alertmanager"
+  secureJsonData:
+    httpHeaderValue1: "demo"
+  isDefault: true
