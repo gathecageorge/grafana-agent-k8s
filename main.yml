@@ -1,5 +1,41 @@
 ---
-# grafana deployment 30000
+# Setup permissions ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: monitoring-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["nodes", "nodes/proxy", "services", "endpoints", "pods"]
+  verbs: ["get", "list", "watch"]
+
+- apiGroups: ["extensions"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]
+---
+# Setup permissions ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitoring-service-account
+
+---
+# Setup permissions ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: monitoring-cluster-role-binding
+roleRef:
+  kind: ClusterRole
+  name: monitoring-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: monitoring-service-account
+    namespace: grafana-agent
+
+---
+# grafana deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -52,7 +88,7 @@ spec:
           name: datasource-config
 
 ---
-# grafana service 30000
+# grafana service 3000
 apiVersion: v1
 kind: Service
 metadata:
@@ -64,7 +100,6 @@ spec:
   ports:
   - port: 3000
     targetPort: 3000
-    nodePort: 30000
 
 ---
 # minio deployment
@@ -103,7 +138,7 @@ spec:
           value: mypassword
 
 ---
-# minio service 30001 and 30002
+# minio service 9000 and 9001
 apiVersion: v1
 kind: Service
 metadata:
@@ -115,11 +150,9 @@ spec:
   ports:
   - port: 9000
     targetPort: 9000
-    nodePort: 30001
     name: "9000"
   - port: 9001
     targetPort: 9001
-    nodePort: 30002
     name: "9001"
 
 ---
@@ -168,7 +201,7 @@ spec:
           name: alertmanager-config
 
 ---
-# mimir service 30003
+# mimir service 8080
 apiVersion: v1
 kind: Service
 metadata:
@@ -180,7 +213,6 @@ spec:
   ports:
   - port: 8080
     targetPort: 8080
-    nodePort: 30003
 
 ---
 # loki deployment
@@ -221,7 +253,7 @@ spec:
           name: loki-config
 
 ---
-# loki service 30004
+# loki service 3100
 apiVersion: v1
 kind: Service
 metadata:
@@ -233,16 +265,14 @@ spec:
   ports:
   - port: 3100
     targetPort: 3100
-    nodePort: 30004
 
 ---
-# grafana-agent deployment
+# grafana-agent DaemonSet
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: grafana-agent-deployment
 spec:
-  replicas: 1
   selector:
     matchLabels:
       app: grafana-agent
@@ -251,6 +281,7 @@ spec:
       labels:
         app: grafana-agent
     spec:
+      serviceAccountName: monitoring-service-account
       containers:
       - name: grafana-agent
         image: grafana/agent:latest
@@ -262,6 +293,12 @@ spec:
             memory: "128Mi"
             cpu: "500m"
         command: ["/usr/bin/bash", "-c", "/configs/entrypoint.sh george-kube-logs"]
+        env:
+          - name: HOSTNAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
         volumeMounts:
         - name: entrypoint-config
           mountPath: /configs/entrypoint.sh
@@ -275,6 +312,12 @@ spec:
         - name: promtail-config
           mountPath: /configs/promtail.yml
           subPath: 'promtail.yml'
+        - name: containers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
+        - name: pods
+          mountPath: /var/log/pods
+          readOnly: true
       volumes:
       - name: entrypoint-config
         configMap:
@@ -289,3 +332,63 @@ spec:
       - name: promtail-config
         configMap:
           name: promtail-config
+      - name: containers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: pods
+        hostPath:
+          path: /var/log/pods
+
+# ---
+# # test-promtail DaemonSet
+# apiVersion: apps/v1
+# kind: DaemonSet
+# metadata:
+#   name: test-promtail-deployment
+# spec:
+#   selector:
+#     matchLabels:
+#       app: test-promtail
+#   template:
+#     metadata:
+#       labels:
+#         app: test-promtail
+#     spec:
+#       serviceAccountName: monitoring-service-account
+#       containers:
+#       - name: test-promtail
+#         image: grafana/promtail:latest
+#         resources:
+#           requests:
+#             memory: "64Mi"
+#             cpu: "250m"
+#           limits:
+#             memory: "128Mi"
+#             cpu: "500m"
+#         args: ["--config.file=/etc/promtail/promtail.yml"]
+#         env:
+#           - name: HOSTNAME
+#             valueFrom:
+#               fieldRef:
+#                 apiVersion: v1
+#                 fieldPath: spec.nodeName
+#         volumeMounts:
+#         - name: test-promtail-config
+#           mountPath: /etc/promtail/promtail.yml
+#           subPath: 'test-promtail.yml'
+#         - name: containers
+#           mountPath: /var/lib/docker/containers
+#           readOnly: true
+#         - name: pods
+#           mountPath: /var/log/pods
+#           readOnly: true
+#       volumes:
+#       - name: test-promtail-config
+#         configMap:
+#           name: test-promtail-config
+#       - name: containers
+#         hostPath:
+#           path: /var/lib/docker/containers
+#       - name: pods
+#         hostPath:
+#           path: /var/log/pods
