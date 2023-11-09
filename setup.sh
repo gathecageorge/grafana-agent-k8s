@@ -19,3 +19,5 @@ kubectl -n grafana-agent create configmap prometheus-config --from-file grafana-
 kubectl -n grafana-agent create configmap promtail-config --from-file grafana-agent/promtail.yml
 
 kubectl -n grafana-agent apply -f main.yml
+
+# kubectl -n grafana-agent port-forward service/grafana-service 3000:3000
