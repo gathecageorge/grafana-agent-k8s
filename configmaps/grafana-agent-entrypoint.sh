@@ -6,7 +6,7 @@ SERVER_LABEL_HOSTNAME="$1"
 
 # -----------------------------------------------------------------------------------------------------
 # Start fresh every time
-cat > "$WORK_DIR/agent.yml" << EOF
+cat > "$WORK_DIR/grafana-agent-config.yml" << EOF
 server:
   log_level: info
 
@@ -21,14 +21,14 @@ EOF
 
 # -----------------------------------------------------------------------------------------------------
 # Set metrics section
-sed -e 's/^/      /' "$WORK_DIR/prometheus.yml" >> "$WORK_DIR/agent.yml"
-sed -e 's/^/  /' "$WORK_DIR/prometheus-custom.yml" >> "$WORK_DIR/agent.yml"
+sed -e 's/^/      /' "$WORK_DIR/grafana-agent-prometheus.yml" >> "$WORK_DIR/grafana-agent-config.yml"
+sed -e 's/^/  /' "$WORK_DIR/grafana-agent-prometheus-custom.yml" >> "$WORK_DIR/grafana-agent-config.yml"
 
 # -----------------------------------------------------------------------------------------------------
 # Set logs section
-echo >> "$WORK_DIR/agent.yml"
-sed -e 's/^//' "$WORK_DIR/promtail.yml" >> "$WORK_DIR/agent.yml"
+echo >> "$WORK_DIR/grafana-agent-config.yml"
+sed -e 's/^//' "$WORK_DIR/grafana-agent-promtail.yml" >> "$WORK_DIR/grafana-agent-config.yml"
 
 # -----------------------------------------------------------------------------------------------------
-sed -i "s/SERVER_LABEL_HOSTNAME/$SERVER_LABEL_HOSTNAME/" "$WORK_DIR/agent.yml"
-exec /usr/bin/grafana-agent --config.file=$WORK_DIR/agent.yml --metrics.wal-directory=/etc/agent/data
+sed -i "s/SERVER_LABEL_HOSTNAME/$SERVER_LABEL_HOSTNAME/" "$WORK_DIR/grafana-agent-config.yml"
+exec /usr/bin/grafana-agent --config.file=$WORK_DIR/grafana-agent-config.yml --metrics.wal-directory=/etc/agent/data

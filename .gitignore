@@ -1,1 +1,1 @@
-grafana-agent/agent.yml
+configmaps/grafana-agent-config.yml

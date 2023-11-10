@@ -12,6 +12,7 @@ rules:
 - apiGroups: ["extensions"]
   resources: ["deployments"]
   verbs: ["get", "list", "watch"]
+
 ---
 # Setup permissions ServiceAccount
 apiVersion: v1
@@ -32,7 +33,20 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: monitoring-service-account
-    namespace: grafana-agent
+    namespace: default
+
+# grafana storage
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
 
 ---
 # grafana deployment
@@ -49,6 +63,11 @@ spec:
     metadata:
       labels:
         app: grafana
+      annotations:
+        promtail.io/logs: 'true'
+        # prometheus.io/scrape: 'true'
+        # prometheus.io/path: '/metrics'
+        # prometheus.io/port: '3000'
     spec:
       containers:
       - name: grafana
@@ -58,8 +77,8 @@ spec:
             memory: "64Mi"
             cpu: "250m"
           limits:
-            memory: "128Mi"
-            cpu: "500m"
+            memory: "1024Mi"
+            cpu: "1000m"
         ports:
         - containerPort: 3000
         env:
@@ -68,27 +87,31 @@ spec:
         - name: GF_AUTH_ANONYMOUS_ORG_ROLE
           value: "Admin"
         volumeMounts:
-        - name: dashboard-config
+        - name: config-files
           mountPath: /etc/grafana/provisioning/dashboards/dashboard.yml
-          subPath: 'dashboard.yml'
-        - name: json-dashboard-config
-          mountPath: /etc/grafana/provisioning/dashboards/json
-        - name: datasource-config
+          subPath: 'grafana-dashboard.yml'
+        
+        - name: config-files
+          mountPath: /etc/grafana/provisioning/dashboards/json/node-exporter.json
+          subPath: 'grafana-dashboard-node-exporter.json'
+        
+        - name: config-files
           mountPath: /etc/grafana/provisioning/datasources/datasource.yml
-          subPath: 'datasource.yml'
+          subPath: 'grafana-datasource.yml'
+
+        - name: grafana-pvc
+          mountPath: /var/lib/grafana
       volumes:
-      - name: dashboard-config
+      - name: config-files
         configMap:
-          name: dashboard-config
-      - name: json-dashboard-config
-        configMap:
-          name: json-dashboard-config
-      - name: datasource-config
-        configMap:
-          name: datasource-config
+          name: config-files
+
+      - name: grafana-pvc
+        persistentVolumeClaim:
+          claimName: grafana-pvc
 
 ---
-# grafana service 3000
+# grafana service 3000 => 30000
 apiVersion: v1
 kind: Service
 metadata:
@@ -100,6 +123,53 @@ spec:
   ports:
   - port: 3000
     targetPort: 3000
+    nodePort: 30000
+
+---
+# random logger deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: random-logger-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: random-logger
+  template:
+    metadata:
+      labels:
+        app: random-logger
+      annotations:
+        promtail.io/logs: 'true'
+        # prometheus.io/scrape: 'true'
+        # prometheus.io/path: '/metrics'
+        # prometheus.io/port: '8080'
+    spec:
+      containers:
+      - name: random-logger
+        image: chentex/random-logger:latest
+        args: ["10", "50"]
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "64Mi"
+            cpu: "250m"
+
+# minio storage
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
 
 ---
 # minio deployment
@@ -116,6 +186,11 @@ spec:
     metadata:
       labels:
         app: minio
+      annotations:
+        promtail.io/logs: 'true'
+        # prometheus.io/scrape: 'true'
+        # prometheus.io/path: '/metrics'
+        # prometheus.io/port: '8080'
     spec:
       containers:
       - name: minio
@@ -136,9 +211,16 @@ spec:
           value: myminio
         - name: MINIO_ROOT_PASSWORD
           value: mypassword
+        volumeMounts:
+        - name: minio-pvc
+          mountPath: /data
+      volumes:
+      - name: minio-pvc
+        persistentVolumeClaim:
+          claimName: minio-pvc
 
 ---
-# minio service 9000 and 9001
+# minio service 9000 and 9001 => 30000 and 30001
 apiVersion: v1
 kind: Service
 metadata:
@@ -151,9 +233,12 @@ spec:
   - port: 9000
     targetPort: 9000
     name: "9000"
+    nodePort: 30001
+
   - port: 9001
     targetPort: 9001
     name: "9001"
+    nodePort: 30002
 
 ---
 # mimir deployment
@@ -170,7 +255,13 @@ spec:
     metadata:
       labels:
         app: mimir
+      annotations:
+        promtail.io/logs: 'true'
+        prometheus.io/scrape: 'true'
+        prometheus.io/path: '/metrics'
+        prometheus.io/port: '8080'
     spec:
+      serviceAccountName: monitoring-service-account
       containers:
       - name: mimir
         image: grafana/mimir:latest
@@ -180,28 +271,26 @@ spec:
             memory: "64Mi"
             cpu: "250m"
           limits:
-            memory: "128Mi"
-            cpu: "500m"
+            memory: "1024Mi"
+            cpu: "1000m"
         args: ["-config.file=/etc/mimir.yml"]
         ports:
         - containerPort: 8080
         volumeMounts:
-        - name: mimir-config
+        - name: config-files
           mountPath: /etc/mimir.yml
           subPath: 'mimir.yml'
-        - name: alertmanager-config
+        
+        - name: config-files
           mountPath: /etc/alertmanager-fallback-config.yaml
-          subPath: 'alertmanager.yml'
+          subPath: 'mimir-alertmanager.yml'
       volumes:
-      - name: mimir-config
+      - name: config-files
         configMap:
-          name: mimir-config
-      - name: alertmanager-config
-        configMap:
-          name: alertmanager-config
+          name: config-files
 
 ---
-# mimir service 8080
+# mimir service 8080 => 30003
 apiVersion: v1
 kind: Service
 metadata:
@@ -213,6 +302,7 @@ spec:
   ports:
   - port: 8080
     targetPort: 8080
+    nodePort: 30003
 
 ---
 # loki deployment
@@ -229,6 +319,11 @@ spec:
     metadata:
       labels:
         app: loki
+      annotations:
+        promtail.io/logs: 'true'
+        prometheus.io/scrape: 'true'
+        prometheus.io/path: '/metrics'
+        prometheus.io/port: '3100'
     spec:
       containers:
       - name: loki
@@ -238,22 +333,22 @@ spec:
             memory: "64Mi"
             cpu: "250m"
           limits:
-            memory: "128Mi"
+            memory: "512Mi"
             cpu: "500m"
         args: ["--config.file=/etc/loki/config.yml"]
         ports:
         - containerPort: 3100
         volumeMounts:
-        - name: loki-config
+        - name: config-files
           mountPath: /etc/loki/config.yml
           subPath: 'loki.yml'
       volumes:
-      - name: loki-config
+      - name: config-files
         configMap:
-          name: loki-config
+          name: config-files
 
 ---
-# loki service 3100
+# loki service 3100 => 30004
 apiVersion: v1
 kind: Service
 metadata:
@@ -265,6 +360,7 @@ spec:
   ports:
   - port: 3100
     targetPort: 3100
+    nodePort: 30004
 
 ---
 # grafana-agent DaemonSet
@@ -280,6 +376,11 @@ spec:
     metadata:
       labels:
         app: grafana-agent
+      annotations:
+        promtail.io/logs: 'true'
+        prometheus.io/scrape: 'true'
+        prometheus.io/path: '/metrics'
+        prometheus.io/port: '8080'
     spec:
       serviceAccountName: monitoring-service-account
       containers:
@@ -290,9 +391,9 @@ spec:
             memory: "64Mi"
             cpu: "250m"
           limits:
-            memory: "128Mi"
-            cpu: "500m"
-        command: ["/usr/bin/bash", "-c", "/configs/entrypoint.sh george-kube-logs"]
+            memory: "1024Mi"
+            cpu: "1000m"
+        command: ["/bin/bash", "-c", "/configs/grafana-agent-entrypoint.sh george-kube-logs"]
         env:
           - name: HOSTNAME
             valueFrom:
@@ -301,40 +402,42 @@ spec:
                 fieldPath: spec.nodeName
         volumeMounts:
         - name: entrypoint-config
-          mountPath: /configs/entrypoint.sh
-          subPath: 'entrypoint.sh'
-        - name: prometheus-custom-config
-          mountPath: /configs/prometheus-custom.yml
-          subPath: 'prometheus-custom.yml'
-        - name: prometheus-config
-          mountPath: /configs/prometheus.yml
-          subPath: 'prometheus.yml'
-        - name: promtail-config
-          mountPath: /configs/promtail.yml
-          subPath: 'promtail.yml'
+          mountPath: /configs/grafana-agent-entrypoint.sh
+          subPath: 'grafana-agent-entrypoint.sh'
+        
+        - name: config-files
+          mountPath: /configs/grafana-agent-prometheus-custom.yml
+          subPath: 'grafana-agent-prometheus-custom.yml'
+        
+        - name: config-files
+          mountPath: /configs/grafana-agent-prometheus.yml
+          subPath: 'grafana-agent-prometheus.yml'
+        
+        - name: config-files
+          mountPath: /configs/grafana-agent-promtail.yml
+          subPath: 'grafana-agent-promtail.yml'
+        
         - name: containers
           mountPath: /var/lib/docker/containers
           readOnly: true
+        
         - name: pods
           mountPath: /var/log/pods
           readOnly: true
       volumes:
       - name: entrypoint-config
         configMap:
-          name: entrypoint-config
-          defaultMode: 0775
-      - name: prometheus-custom-config
+          name: config-files
+          defaultMode: 0744
+
+      - name: config-files
         configMap:
-          name: prometheus-custom-config
-      - name: prometheus-config
-        configMap:
-          name: prometheus-config
-      - name: promtail-config
-        configMap:
-          name: promtail-config
+          name: config-files
+
       - name: containers
         hostPath:
           path: /var/lib/docker/containers
+      
       - name: pods
         hostPath:
           path: /var/log/pods
@@ -353,6 +456,11 @@ spec:
 #     metadata:
 #       labels:
 #         app: test-promtail
+#       annotations:
+#         promtail.io/logs: 'true'
+#         prometheus.io/scrape: 'true'
+#         prometheus.io/path: '/metrics'
+#         prometheus.io/port: '80'
 #     spec:
 #       serviceAccountName: monitoring-service-account
 #       containers:
@@ -363,7 +471,7 @@ spec:
 #             memory: "64Mi"
 #             cpu: "250m"
 #           limits:
-#             memory: "128Mi"
+#             memory: "512Mi"
 #             cpu: "500m"
 #         args: ["--config.file=/etc/promtail/promtail.yml"]
 #         env:
@@ -373,22 +481,26 @@ spec:
 #                 apiVersion: v1
 #                 fieldPath: spec.nodeName
 #         volumeMounts:
-#         - name: test-promtail-config
+#         - name: config-files
 #           mountPath: /etc/promtail/promtail.yml
 #           subPath: 'test-promtail.yml'
+        
 #         - name: containers
 #           mountPath: /var/lib/docker/containers
 #           readOnly: true
+        
 #         - name: pods
 #           mountPath: /var/log/pods
 #           readOnly: true
 #       volumes:
-#       - name: test-promtail-config
+#       - name: config-files
 #         configMap:
-#           name: test-promtail-config
+#           name: config-files
+      
 #       - name: containers
 #         hostPath:
 #           path: /var/lib/docker/containers
+      
 #       - name: pods
 #         hostPath:
 #           path: /var/log/pods
