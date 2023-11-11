@@ -44,8 +44,8 @@ subjects:
     name: monitoring-service-account
     namespace: default
 
-# grafana storage
 ---
+# grafana storage
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -168,8 +168,8 @@ spec:
             memory: "64Mi"
             cpu: "250m"
 
-# minio storage
 ---
+# minio storage
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
