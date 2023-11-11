@@ -22,3 +22,5 @@ helm --namespace=openebs install openebs openebs/openebs
 # Run test app
 # kubectl apply -f https://raw.githubusercontent.com/kubernetes/website/master/content/en/examples/application/nginx-app.yaml
 
+# Use default storage class provided by openebs
+sed -i "s/# storageClassName: my-storage-class/storageClassName: openebs-hostpath/g" main.yml
