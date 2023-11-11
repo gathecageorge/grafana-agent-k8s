@@ -7,5 +7,8 @@ kubeadm init --pod-network-cidr=10.244.0.0/16
 kubectl taint nodes --all node-role.kubernetes.io/master-
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 
+# For networking to function, you must install a Container Network Interface (CNI) plugin. With this in mind, we’re installing flannel.
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+
 # Run test app
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/website/master/content/en/examples/application/nginx-app.yaml
