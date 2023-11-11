@@ -1,10 +1,10 @@
----
-# Storage class
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: my-storage-class
-provisioner: docker.io/hostpath
+# ---
+# # Storage class
+# apiVersion: storage.k8s.io/v1
+# kind: StorageClass
+# metadata:
+#   name: my-storage-class
+# provisioner: docker.io/hostpath
 
 ---
 # Setup permissions ClusterRole
@@ -50,7 +50,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: grafana-pvc
 spec:
-  storageClassName: my-storage-class
+  # storageClassName: my-storage-class
   accessModes:
   - ReadWriteOnce
   resources:
@@ -174,7 +174,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: minio-pvc
 spec:
-  storageClassName: my-storage-class
+  # storageClassName: my-storage-class
   accessModes:
   - ReadWriteOnce
   resources:
