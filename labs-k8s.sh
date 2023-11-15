@@ -24,3 +24,5 @@ helm --namespace=openebs install openebs openebs/openebs
 
 # Use default storage class provided by openebs
 sed -i "s/# storageClassName: my-storage-class/storageClassName: openebs-hostpath/g" main.yml
+
+./setup.sh

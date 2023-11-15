@@ -1,5 +1,6 @@
 # ---
-# # Storage class
+# # Storage class If using another provisioner other than default one uncomment below and also lines
+# # with 'storageClassName: my-storage-class'
 # apiVersion: storage.k8s.io/v1
 # kind: StorageClass
 # metadata:
@@ -120,7 +121,7 @@ spec:
           claimName: grafana-pvc
 
 ---
-# grafana service 3000 => 30000
+# grafana service 3000
 apiVersion: v1
 kind: Service
 metadata:
@@ -132,7 +133,6 @@ spec:
   ports:
   - port: 3000
     targetPort: 3000
-    nodePort: 30000
 
 ---
 # random logger deployment
@@ -230,7 +230,7 @@ spec:
           claimName: minio-pvc
 
 ---
-# minio service 9000 and 9001 => 30000 and 30001
+# minio service 9000 and 9001
 apiVersion: v1
 kind: Service
 metadata:
@@ -243,12 +243,10 @@ spec:
   - port: 9000
     targetPort: 9000
     name: "9000"
-    nodePort: 30001
 
   - port: 9001
     targetPort: 9001
     name: "9001"
-    nodePort: 30002
 
 ---
 # mimir deployment
@@ -300,7 +298,7 @@ spec:
           name: config-files
 
 ---
-# mimir service 8080 => 30003
+# mimir service 8080
 apiVersion: v1
 kind: Service
 metadata:
@@ -312,7 +310,6 @@ spec:
   ports:
   - port: 8080
     targetPort: 8080
-    nodePort: 30003
 
 ---
 # loki deployment
@@ -358,7 +355,7 @@ spec:
           name: config-files
 
 ---
-# loki service 3100 => 30004
+# loki service 3100
 apiVersion: v1
 kind: Service
 metadata:
@@ -370,7 +367,6 @@ spec:
   ports:
   - port: 3100
     targetPort: 3100
-    nodePort: 30004
 
 ---
 # grafana-agent DaemonSet
@@ -452,65 +448,65 @@ spec:
         hostPath:
           path: /var/log/pods
 
-# ---
-# # test-promtail DaemonSet
-# apiVersion: apps/v1
-# kind: DaemonSet
-# metadata:
-#   name: test-promtail-deployment
-# spec:
-#   selector:
-#     matchLabels:
-#       app: test-promtail
-#   template:
-#     metadata:
-#       labels:
-#         app: test-promtail
-#       annotations:
-#         promtail.io/logs: 'true'
-#         prometheus.io/scrape: 'true'
-#         prometheus.io/path: '/metrics'
-#         prometheus.io/port: '80'
-#     spec:
-#       serviceAccountName: monitoring-service-account
-#       containers:
-#       - name: test-promtail
-#         image: grafana/promtail:latest
-#         resources:
-#           requests:
-#             memory: "64Mi"
-#             cpu: "250m"
-#           limits:
-#             memory: "512Mi"
-#             cpu: "500m"
-#         args: ["--config.file=/etc/promtail/promtail.yml"]
-#         env:
-#           - name: HOSTNAME
-#             valueFrom:
-#               fieldRef:
-#                 apiVersion: v1
-#                 fieldPath: spec.nodeName
-#         volumeMounts:
-#         - name: config-files
-#           mountPath: /etc/promtail/promtail.yml
-#           subPath: 'test-promtail.yml'
+---
+# test-promtail DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: test-promtail-deployment
+spec:
+  selector:
+    matchLabels:
+      app: test-promtail
+  template:
+    metadata:
+      labels:
+        app: test-promtail
+      annotations:
+        promtail.io/logs: 'true'
+        prometheus.io/scrape: 'true'
+        prometheus.io/path: '/metrics'
+        prometheus.io/port: '80'
+    spec:
+      serviceAccountName: monitoring-service-account
+      containers:
+      - name: test-promtail
+        image: grafana/promtail:latest
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        args: ["--config.file=/etc/promtail/promtail.yml"]
+        env:
+          - name: HOSTNAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: spec.nodeName
+        volumeMounts:
+        - name: config-files
+          mountPath: /etc/promtail/promtail.yml
+          subPath: 'test-promtail.yml'
         
-#         - name: containers
-#           mountPath: /var/lib/docker/containers
-#           readOnly: true
+        - name: containers
+          mountPath: /var/lib/docker/containers
+          readOnly: true
         
-#         - name: pods
-#           mountPath: /var/log/pods
-#           readOnly: true
-#       volumes:
-#       - name: config-files
-#         configMap:
-#           name: config-files
+        - name: pods
+          mountPath: /var/log/pods
+          readOnly: true
+      volumes:
+      - name: config-files
+        configMap:
+          name: config-files
       
-#       - name: containers
-#         hostPath:
-#           path: /var/lib/docker/containers
+      - name: containers
+        hostPath:
+          path: /var/lib/docker/containers
       
-#       - name: pods
-#         hostPath:
-#           path: /var/log/pods
+      - name: pods
+        hostPath:
+          path: /var/log/pods

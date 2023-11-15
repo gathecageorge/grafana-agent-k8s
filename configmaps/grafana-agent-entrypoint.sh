@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# WORK_DIR="$(pwd)"
-WORK_DIR="/configs"
+WORK_DIR=$(dirname "$(readlink -f "${BASH_SOURCE}")")
 SERVER_LABEL_HOSTNAME="$1"
 
 # -----------------------------------------------------------------------------------------------------
